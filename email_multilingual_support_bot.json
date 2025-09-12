@@ -1,0 +1,157 @@
+{
+    "name": "Email Multilingual AI Support Bot",
+    "nodes": [
+        {
+            "parameters": {},
+            "id": "gmailTrigger",
+            "name": "Gmail Trigger",
+            "type": "n8n-nodes-base.gmailTrigger",
+            "typeVersion": 1,
+            "position": [
+                100,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "requestMethod": "POST",
+                "url": "https://libretranslate.de/detect",
+                "jsonParameters": true,
+                "options": {},
+                "bodyParametersJson": "{\"q\": \"={{$json[\"body\"]}}\"}"
+            },
+            "id": "detectLang",
+            "name": "Detect Language",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 2,
+            "position": [
+                300,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "requestMethod": "POST",
+                "url": "https://libretranslate.de/translate",
+                "jsonParameters": true,
+                "options": {},
+                "bodyParametersJson": "{\"q\": \"={{$json[\"body\"]}}\", \"source\": \"={{$node[\"Detect Language\"].json[0].language}}\", \"target\": \"en\"}"
+            },
+            "id": "translateToEnglish",
+            "name": "Translate to English",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 2,
+            "position": [
+                500,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "completion",
+                "model": "gpt-3.5-turbo",
+                "prompt": "You are a helpful customer support assistant. Respond to the following message:\n\n{{$node[\"Translate to English\"].json[\"translatedText\"]}}",
+                "temperature": 0.7
+            },
+            "id": "openaiReply",
+            "name": "OpenAI Generate Reply",
+            "type": "n8n-nodes-base.openai",
+            "typeVersion": 1,
+            "position": [
+                700,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "requestMethod": "POST",
+                "url": "https://libretranslate.de/translate",
+                "jsonParameters": true,
+                "options": {},
+                "bodyParametersJson": "{\"q\": \"={{$json[\"text\"]}}\", \"source\": \"en\", \"target\": \"={{$node[\"Detect Language\"].json[0].language}}\"}"
+            },
+            "id": "translateBack",
+            "name": "Translate Back to Original Language",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 2,
+            "position": [
+                900,
+                300
+            ]
+        },
+        {
+            "parameters": {
+                "resource": "message",
+                "fromEmail": "{{ $env.GMAIL_EMAIL }}",
+                "toEmail": "={{$node[\"Gmail Trigger\"].json[\"from\"]}}",
+                "subject": "Re: {{$node[\"Gmail Trigger\"].json[\"subject\"]}}",
+                "message": "={{$node[\"Translate Back to Original Language\"].json[\"translatedText\"]}}"
+            },
+            "id": "sendEmail",
+            "name": "Send Email Response",
+            "type": "n8n-nodes-base.gmail",
+            "typeVersion": 1,
+            "position": [
+                1100,
+                300
+            ]
+        }
+    ],
+    "connections": {
+        "Gmail Trigger": {
+            "main": [
+                [
+                    {
+                        "node": "Detect Language",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Detect Language": {
+            "main": [
+                [
+                    {
+                        "node": "Translate to English",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Translate to English": {
+            "main": [
+                [
+                    {
+                        "node": "OpenAI Generate Reply",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "OpenAI Generate Reply": {
+            "main": [
+                [
+                    {
+                        "node": "Translate Back to Original Language",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Translate Back to Original Language": {
+            "main": [
+                [
+                    {
+                        "node": "Send Email Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    }
+}
