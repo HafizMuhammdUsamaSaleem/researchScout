@@ -1,46 +1,48 @@
-# streamlit_app.py
-
 import streamlit as st
 from src.search_agent import SearchAgent
-from src.summarizer_agent import SummarizerAgent
-from src.relevance_checker_agent import RelevanceCheckerAgent
-# from pdf.generator import generate_pdf  # 👈 New import
-
+from src.researcher_info_agent import ResearchInfoAgent
+from src.article_agent import ArticleAgent
+from src.utils import filter_results
 st.set_page_config(page_title="🧠 AI Research Assistant", page_icon="📚")
 st.title("📚 AI Research Assistant")
-st.write("Ask any research topic and get relevant papers with summaries and relevance scores!")
+st.write("Ask about a research topic and choose whether to search **academic papers** or **popular articles**.")
 
+# --- User Input ---
 query = st.text_input("🔍 Enter your research topic/question:")
+search_type = st.selectbox("📂 What do you want to search?", ["Research Papers", "Popular Articles"])
 
-if st.button("Run Research"):
+# --- Run button ---
+if st.button("Run Search"):
     if not query.strip():
-        st.warning("Please enter a query.")
+        st.warning("⚠️ Please enter a query.")
     else:
-        with st.spinner("🔎 Searching for papers..."):
-            search_agent = SearchAgent()
-            search_results = search_agent.search_papers(query)
-        st.success("✅ Found relevant papers")
-        st.markdown(search_results)
+        if search_type == "Research Papers":
+            with st.spinner("🔎 Searching for research papers..."):
+                search_agent = SearchAgent()
+                search_results = search_agent.search_papers(query)
+                search_results = filter_results(search_results)
+                if not search_results:
+                    st.warning("⚠️ No valid open-access papers found.")
+                else:
+                    st.success("✅ Found relevant papers")
+                    for r in search_results:
+                        st.markdown(f"- [{r['title']}]({r['url']})")
+            with st.spinner("👤 Gathering researcher info..."):
+                researcher_agent = ResearchInfoAgent()
+                researcher_info = researcher_agent.researcher_info(search_results, query)
+            st.success("✅ Researcher insights ready")
+            st.markdown("### 👨‍🔬 Researcher Info")
+            st.markdown(researcher_info)
 
-        with st.spinner("📝 Summarizing papers..."):
-            summarizer_agent = SummarizerAgent()
-            summary_results = summarizer_agent.summarize_papers(search_results)
-        st.success("✅ Summaries ready")
-        st.markdown(summary_results)
+        elif search_type == "Popular Articles":
+            with st.spinner("📰 Searching for popular articles..."):
+                article_agent = ArticleAgent()
+                article_results = article_agent.search_articles(query)
+                article_results = filter_results(article_results)
+                if not article_results:
+                    st.warning("⚠️ No valid open-access papers found.")
+                else:
+                    st.success("✅ Found relevant articles")
+                    for r in article_results:
+                        st.markdown(f"- [{r['title']}]({r['url']})")
 
-        with st.spinner("📌 Evaluating relevance..."):
-            relevance_agent = RelevanceCheckerAgent()
-            relevance_results = relevance_agent.check_relevance(summary_results, query)
-        st.success("✅ Relevance check complete")
-        st.markdown("### 🧾 Relevance Evaluation")
-        st.markdown(relevance_results)
-
-        # PDF download
-        # Your existing code works as-is
-        # pdf_bytes = generate_pdf(query, search_results, summary_results, relevance_results)
-        # st.download_button(
-        #     label="📄 Download Report as PDF",
-        #     data=pdf_bytes,
-        #     file_name="research_report.pdf",
-        #     mime="application/pdf"
-        # )
